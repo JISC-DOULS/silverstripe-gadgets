@@ -1,0 +1,432 @@
+/*Google default styles*/
+body,div,ul,li,h1,h2,h3,h4,h5,h6,form,textarea,p,td {
+  margin: 0;
+  padding: 0;
+}
+img {
+  border: 0;
+}
+ol,ul {
+  list-style: none;
+}
+h1,h2,h3,h4,h5,h6 {
+  font-size: 100%;
+  font-weight: normal;
+}
+body {
+	background-color: #fff;
+	font: 13px Arial, Helvetica, sans-serif;
+}
+table {
+  font-size: inherit;
+}
+img a,a img {
+  background-color: transparent;
+}
+table td {
+  font-size: 12px;
+  vertical-align: top;
+}
+/* Standard design */
+input[type=submit], input[type=button] {
+	background-color: #1a1a1a;
+	color: #add0E1;
+	padding: 5px;
+	width: 6.5em;
+	border: 0;
+	-moz-border-radius: 4px;
+    -webkit-border-radius: 4px;
+}
+input[type=submit]:hover, input[type=button]:hover {
+	text-decoration: underline;
+}
+.threadtitle, .message, input[type=text] {
+	font:13px arial,sans-serif;
+	border: 1px solid #ccc;
+}
+a {
+	color: #1f536b;
+	font-size: 11px;
+	text-decoration: none;
+}
+#usermap a {
+	font-size: 13px;
+}
+.buddycontainer.open {
+	background-color: #fff;
+}
+.prepop {
+    color: #888;
+}
+/*Gadget css */
+#layout {
+    display: none;
+    min-width: 218px;
+}
+#unread, #messages, #buddies, #profile {
+    min-height: 289px;
+    height: 289px;
+}
+#footer {
+	border-top: 1px solid #ccc;
+	padding-top: 1px;
+}
+#footer div {
+    float: left;
+    padding-right: 10px;
+	 margin-top: 5px;
+}
+#footer #home {
+	float: right;
+}
+#footer #oulogo {
+	float: right;
+	padding: 0;
+	margin: 0;
+}
+#footer #invites a {
+	background-repeat: no-repeat;
+	background-position: left center;
+	padding-right: 10px;
+	padding-left: 29px;
+	padding-top: 5px;
+}
+#footer #numunread a {
+	background-repeat: no-repeat;
+	background-position: left center;
+	padding-left: 16px;
+	padding-top: 5px;
+}
+.spinner {
+    text-align: center;
+    left: 50%;
+    top: 50%;
+    position: absolute;
+    display: none;
+}
+#unread #quickmsg .threadtitle {
+	width: 55%;
+	display: inline;
+	font-size: 90%;
+}
+#unread #quickmsg .buddyselect {
+    float: right;
+    width: 41.5%;
+    display: inline;
+    margin-top: 2px;
+    height: 1.7em;
+	 font-size: 90%;
+	 border: 1px solid #ccc;
+}
+#unread #quickmsg .messagebox {
+    margin-right: 7em;
+}
+#unread #quickmsg .message {
+    width: 100%;
+    float: left;
+	 font-size: 90%;
+}
+#unread #quickmsg .send {
+    float: right;
+}
+#unread #unreadsection {
+    display: none;
+	 width: 100%;
+}
+#unread #unreadsection h2 {
+	clear: both;
+	 color: #1f536b;
+	 font-weight: bold;
+	 padding-bottom: 1px;
+	 padding-top: 10px;
+}
+#unread #unreadsection #unreadheadings {
+	 border-top: 1px solid #f2f2f2;
+	 padding-top: 2px;
+	 margin-bottom: 2px;
+	 color: #1f536b;
+	 font-weight: normal;
+	 font-size: 11px;
+}
+#unread #unreadsection #unreadheadings div {
+	 border-left: 1px solid #1f536b;
+	 margin-bottom: 2px;
+	 float: left;
+}
+#unread #unreadsection #unreadheadings .msgsent {
+	border-left: 0;
+}
+#unread #unreadsection #unreadlist {
+    position: relative;
+    max-height: 188px;
+    overflow: auto;
+	 clear: both;
+}
+.thread {
+	background-color: #f2f2f2;
+	border-bottom: 2px solid #ccc;
+	clear: both;
+	width: 100%;
+   padding-top: 5px;
+   padding-bottom: 2px;
+	float: left;
+}
+.thread.open {
+	background-color: #fff;
+}
+.msgsent {
+	float: left;
+	width: 50px;
+	font-size: 11px;
+	padding-left: 2px;
+	padding-top: 1px;
+}
+.unreadalert {
+	background-position: 2px bottom;
+	background-repeat: no-repeat;
+	padding-bottom: 2em;
+}
+.msgbuddy {
+	float: left;
+	width: 50px;
+	padding-left: 3px;
+	padding-right: 3px;
+	padding-top: 1px;
+}
+.msgmain {
+	padding-left: 3px;
+	padding-right: 2px;
+	padding-top: 1px;
+}
+.msgmain h3 {
+	font-weight: bold;
+   min-height: 35px;
+}
+.msgmain .threadactions .ta_view {
+	float: left;
+}
+.msgmain .threadactions .ta_close {
+	display: none;
+	float: left;
+	margin-left: 5px;
+}
+.msgmain .threadactions .ta_reply {
+	display: none;
+	float: left;
+	margin-left: 5px;
+}
+.thread.open .msgmain .threadactions .ta_view a {
+	color: #ccc;
+}
+.thread.open .msgmain .threadactions .ta_close, .thread.open .msgmain .threadactions .ta_reply {
+	display: block;
+}
+.thread .threadmessage {
+	width: 100%;
+	clear: both;
+	float: left;
+	display: none;
+	margin-top: 2px;
+}
+.thread .threadmessage .msgbuddy, .thread .threadmessage .msgmain {
+	border-top: 1px solid #ccc;
+}
+#messages h2 {
+	clear: both;
+	 color: #1f536b;
+	 font-weight: bold;
+	 padding-bottom: 3px;
+}
+#messages .buddyselect {
+    display: inline;
+    height: 1.7em;
+	 font-size: 90%;
+	 border: 1px solid #ccc;
+}
+#messages #threadbuddyselectlabel {
+	color: #1f536b;
+	float: left;
+	display: inline;
+	font-size: 11px;
+	margin-left: 5px;
+}
+#messages #threadheadings {
+	 border-top: 1px solid #f2f2f2;
+	 padding-top: 2px;
+	 margin-top: 5px;
+	 margin-bottom: 2px;
+	 color: #1f536b;
+	 font-weight: normal;
+	 font-size: 11px;
+}
+#messages #threadheadings div {
+	 border-left: 1px solid #1f536b;
+	 margin-bottom: 2px;
+	 float: left;
+}
+#messages #threadheadings .msgsent {
+	border-left: 0;
+}
+#messages #threadlist {
+    position: relative;
+    max-height: 220px;
+    overflow: auto;
+	 clear: both;
+}
+#buddies h2 {
+	color: #1f546b;
+	font-weight: bold;
+	font-size: 12px;
+}
+#buddylist {
+    position: relative;
+    max-height: 252px;
+    overflow: auto;
+    clear: both;
+}
+.inputlabel {
+  position: absolute !important;
+  clip: rect(1px 1px 1px 1px); /* IE6, IE7 */
+  clip: rect(1px, 1px, 1px, 1px);
+}
+#buddysearch {
+    float: right;
+}
+#buddysearchsubmit {
+	background-color: #fff;
+	padding: 0;
+	color: transparent;
+	background-repeat: no-repeat;
+	width: 15px;
+	height: 15px;
+	font-size: 0px;
+	position: relative;
+	top: -5px;
+}
+.buddycontainer {
+    border-bottom: 2px solid #ccc;
+    float:left;
+    clear: both;
+    width: 100%;
+    padding-top: 5px;
+    padding-bottom: 2px;
+	 background-color: #f2f2f2;
+}
+.buddycontainer .buddyavatar {
+    float: left;
+	 margin-right: 5px;
+	 margin-left: 5px;
+}
+.buddycontainer .buddyname h3 {
+    min-height: 35px;
+    font-weight: bold;
+}
+.buddycontainer .buddyprofilelink {
+    float: left;
+    display: inline;
+}
+.buddycontainer .buddymsglink {
+    float: right;
+    padding-right: 2px;
+}
+.buddycontainer a {
+    text-decoration: none;
+}
+.quickmessagearea {
+    clear: both;
+	 margin-left: 5px;
+	 margin-right: 2px;
+}
+.quickmessagearea .send {
+    margin-right: 5px;
+}
+.quickmessagearea .threadtitle {
+    width: 98.5%;
+}
+.quickmessagearea .messagebox .message {
+    width: 99.5%;
+    height: 3em;
+}
+#profile .profiletitle {
+    display: inline;
+    float: left;
+    font-weight: bold;
+	 color: #1F536b;
+	 font-size: 12px;
+}
+#profile .profileaction {
+    display: inline;
+    float: right;
+}
+#profile .profilebody {
+    clear: both;
+    max-height: 267px;
+    overflow: auto;
+    border-top: 2px solid #ccc;
+	 font-size: 12px;
+}
+#profile .profilebody img  {
+	margin-top: 2px;
+}
+#profile .profileitem {
+    border-top: 1px solid #ccc;
+	 padding-top: 4px;
+	 margin-bottom: .5em;
+}
+#profile .profileitemname {
+	color: #1f536b;
+	margin-bottom: 1em;
+}
+#profile .profileitemvalue {
+    font-weight: bold;
+    min-height: 1em;
+}
+/*Tab styling*/
+#layout #tablist {
+    background-color: #ecf2fa;
+    padding-left: 4px;
+    padding-top: 5px;
+    margin-bottom: 1px;
+}
+#layout #tablist a {
+    color: transparent;
+    background-position: center center;
+    background-repeat: no-repeat;
+    width: 43px;
+    height: 21px;
+    font-size: 0px;
+}
+.yui3-skin-sam #layout .yui3-tabview-panel {
+    background: 0;
+    border: 0;
+}
+.yui3-tab-focused {
+    outline: orange 1px dotted;
+	 outline-color: -webkit-focus-ring-color;
+}
+.yui3-skin-sam #layout .yui3-tabview-list {
+    border-color: #CCC;
+    border-width: 0 0 2px;
+}
+.yui3-skin-sam #layout .yui3-tab-selected .yui3-tab-label {
+    border-color: #CCC;
+}
+.yui3-skin-sam #layout .yui3-tab-label {
+    background: #ecf2fa;
+    border-color: #ecf2fa;
+}
+#layout .yui3-tabview-panel {
+    padding: 0;
+    padding-top: .25em;
+}
+.yui3-skin-sam .yui3-tab-label {
+    -moz-border-radius-topleft: 4px;
+    -moz-border-radius-topright: 4px;
+    -webkit-border-top-left-radius: 4px;
+    -webkit-border-top-right-radius: 4px;
+}
+.yui3-skin-sam #layout .yui3-tab-selected .yui3-tab-label, .yui3-skin-sam .yui3-tab-selected .yui3-tab-label:focus, .yui3-skin-sam .yui3-tab-selected .yui3-tab-label:hover {
+    background: white;
+    color: #1F5B6B;
+    font-weight: bold;
+}

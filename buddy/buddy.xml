@@ -1,0 +1,789 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module>
+    <ModulePrefs
+            title="OU Buddy"
+            title_url="%%SERVER%%"
+            author="The Open University"
+            author_email="igoogle+nospam@my.open.ac.uk"
+            description="The OU Buddy system in a gadget."
+            thumbnail="%%DIR%%/buddy/thumbnail.png" scrolling="true" height="350">
+        <Require feature="views" />
+        <Require feature="dynamic-height" />
+        <Require feature="osapi" />
+        <Require feature="setprefs" />
+    </ModulePrefs>
+    <UserPref name="selectedTab" datatype="hidden" default_value="0" />
+    <Content type="html" view="home,canvas,profile"><![CDATA[<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+    %%js%%
+    <link rel="stylesheet" type="text/css" href="%%DIR%%/buddy/buddy.css" />
+    <style type="text/css">
+    #layout #tablist .hometab a {
+        background-image: url('%%DIR%%/buddy/new_message.png');
+    }
+    #layout #tablist .threadtab a {
+        background-image: url('%%DIR%%/buddy/conversations.png');
+    }
+    #layout #tablist .buddiestab a {
+        background-image: url('%%DIR%%/buddy/buddies.png');
+    }
+    #layout #tablist .profiletab a {
+        background-image: url('%%DIR%%/buddy/profile.png');
+    }
+    #layout #footer #invites a {
+        background-image: url('%%DIR%%/buddy/new_buddies.png');
+    }
+    #layout #footer #numunread a {
+        background-image: url('%%DIR%%/buddy/unread_message.png');
+    }
+    #buddysearchsubmit {
+        background-image: url('%%DIR%%/buddy/go.png');
+    }
+    .unreadalert {
+        background-image: url('%%DIR%%/buddy/unread_message.png');
+    }
+    </style>
+    <script type="text/javascript">
+    var prefs = new gadgets.Prefs();
+    var tabs = new Array();
+    var curtab = 0;//current tab selected
+    var buddylist = new Array();//Array of user buddy details (store on load as used in multiple places)
+    var tabview;
+
+    //Main Start function - once user map is set then do content!
+    function start() {
+        YUI().use('async-queue', 'node', function(Y) {
+            Y.one('#mainspinner').setStyle('display', 'block');
+            var q = new Y.AsyncQueue(function() {
+                if (typeof mg.usermap != 'undefined') {
+                    Y.one('#mainspinner').setStyle('display', 'none');
+                    if (mg.usermap) {
+                        q.stop();
+                        Y.one('#mainspinner').setStyle('display', 'block');
+                        mg.web_service_call('BuddyWeb', 'getInitialData', '', startdataload);
+                    }
+                }
+            });
+            //allow time for response from server
+            q.defaults.iterations = 25;
+            q.defaults.timeout = 500;
+            q.run();
+        });
+    };
+
+    //Get data we need on load
+    function startdataload(ret) {
+        //Populate buddies
+        if (typeof ret.content != 'undefined' && typeof ret.content.buddies != 'undefined') {
+            buddylist = ret.content.buddies;
+        }
+        //Start gadget layout
+        setup();
+    }
+
+    //Gadget layout setup (make tabs etc)
+    function setup() {
+        YUI().use('node', 'tabview', function(Y) {
+            try {
+                Y.one('body').addClass('yui3-skin-sam');
+                //Create tabs
+                tabview = new Y.TabView({
+                    srcNode: '#tabs'
+                });
+                tabview.render();
+
+                //Needs to be called after render event
+                tabview.on('render', function(e) {
+                    //Prepopulate user profile so always there
+                    if (prefs.getInt('selectedTab') != 3) {
+                        showprofile(0);
+                    }
+                    Y.one('#mainspinner').setStyle('display', 'none');
+                    makefieldsprepop();//Add pre-populated fields
+                    //Display after all rendered
+                    Y.one('#layout').setStyle('display', 'block');
+                    resize_gadget();
+                    //Change to previously selected tab
+                    if (prefs.getInt('selectedTab') > 0) {
+                        tabview.selectChild(prefs.getInt('selectedTab'));
+                        curtab = prefs.getInt('selectedTab');
+                        window['loadtab' + prefs.getInt('selectedTab')]();//call tab load func dynamically
+                    } else {
+                        //Run home tab setup
+                        loadtab0();
+                    }
+                    updatestatus();
+                });
+
+                tabview.on('selectionChange', function(e) {
+                    var tabselected = e.newVal.get("index");
+                    if (tabselected == curtab) {
+                        //Seem to be switching to same tab - exit
+                        return;
+                    }
+                    curtab = tabselected;
+                    window['loadtab' + tabselected]();//call tab load func dynamically
+                    setTimeout('resize_gadget()', 10);
+                    prefs.set('selectedTab', tabselected);
+                });
+
+                //Capture message form posts
+                var msgforms = Y.all("#quickmsg");
+                msgforms.on('submit', sendmsg);
+            } catch(e) {
+                Y.one('#mainspinner').setStyle('display', 'none');
+                error('There was an error adding information to the gadget. ' + e);
+            }
+        });
+    };
+
+    //User jumped to Home tab - load/refresh dynamic content
+    function loadtab0() {
+        YUI().use('node', function(Y) {
+            Y.one('#mainspinner').setStyle('display', 'block');
+            //Check if buddy drop down populated - if not do it.
+            var select = Y.one("#unread #quickmsg .buddyselect");
+            if (select.get("innerHTML") == "") {
+                select.append('<option value="0" disabled="true">Choose buddy</option>');
+                //loop thru buddies and add as select option
+                for (var i = 0, len = buddylist.length; i < len; i++) {
+                    select.append('<option value="' + buddylist[i].id + '">' + buddylist[i].name + '</option>');
+                }
+            }
+            //Check if unread messages area populated - if not do it.
+            mg.web_service_call('BuddyWeb', 'getUnreadMessages', '', updateunreadmsgs);
+        });
+    }
+
+    //After call to getUnreadMessages update the unread messages area (inc unread alert)
+    function updateunreadmsgs(ret) {
+        if (typeof ret.content == 'undefined' || typeof ret.content.total == 'undefined') {
+            return;
+        }
+        YUI().use('node', function(Y) {
+            var msgs = Y.one("#unread #unreadsection #unreadlist");
+            var unread = Y.one("#unread #unreadsection");
+            unread.setStyle("display", "none");
+            msgs.set("innerHTML", "");
+            Y.one('#mainspinner').setStyle('display', 'none');
+            createthreads("#unread #unreadsection #unreadlist", ret, "unready");
+            if (ret.content.total > 0) {
+                unread.setStyle("display", "block");
+            }
+        });
+        setunreadmsgs(ret);//Update status bar
+    }
+
+    //Create messages and threads into specified div e.g. unread or threads page
+    function createthreads(selector, ret, preffix) {
+        if (typeof ret.content == 'undefined' || typeof ret.content.threads == 'undefined'
+            || ret.content.threads.length == 0) {
+            return;
+        }
+        YUI().use('node', function(Y) {
+            var container = Y.one(selector);
+            for(var i=0, len = ret.content.threads.length; i < len; i++) {
+                var curthread = ret.content.threads[i];
+                var hasunread = curthread.unread;
+                var unreadclass = hasunread ? "unreadalert" : "";
+                //Make thread container
+                var threads = "";
+                threads += '<div class="thread" id="' + preffix + 'cont_' + curthread.id + '">';
+                threads += '<div class="msgsent ' + unreadclass + '">' + curthread.messages[0].date + '</div>';
+                threads += '<div class="msgbuddy buddyavatar">';
+                threads += '<a href="#" id="' + preffix + 'tbai_' + curthread.buddyid + '">';
+                threads += '<img src="' + curthread.avatar + '" alt="View profile of ' + curthread.buddy + '" title="View profile of ' + curthread.buddy + '" class="avatar" />';
+                threads += '</a></div>';//end avatar
+                threads += '<div class="msgmain">';
+                threads += '<h3>' + curthread.title + '</h3>';
+                threads += '<div class="threadactions">';
+                threads += '<div class="ta_view"><a href="#" title="View \"'+ curthread.title +'\" conversation thread">View conversation</a></div>';
+                threads += '<div class="ta_close"><a href="#" title="Close \"'+ curthread.title +'\" conversation thread">Close</a></div>';
+                threads += '<div class="ta_reply"><a href="#" title="Reply to \"'+ curthread.title +'\" conversation thread">Reply</a></div>';
+                threads += "</div></div>";
+                //Holder for message area
+                threads += '<div class="quickmessagearea"></div>';
+                //Messages
+                var messages = "";
+                for(var j=0, len2 = curthread.messages.length; j < len2; j++) {
+                    var curmsg = curthread.messages[j];
+                    var message = '<div class="threadmessage" id="' + preffix + 'msgcont_' + curmsg.id + '">';
+                    message += '<div class="msgsent">' + curmsg.date + '</div>';
+                    message += '<div class="msgbuddy buddyavatar">';
+                    message += '<a href="#" id="' + preffix + 'mbai_' + curmsg.buddyid + '">';
+                    message += '<img src="' + curmsg.avatar + '" alt="View profile of ' + curmsg.buddy + '" title="View profile of ' + curmsg.buddy + '" class="avatar" />';
+                    message += '</a></div>';//end avatar
+                    //TODO - Add fixed length message text + more link (inc unread fun)
+                    message += '<div class="msgmain">';
+                    message += curmsg.text + '</div>';
+                    message += "</div>";//end msg container
+                    messages += message;
+                    if (curmsg.unread) {
+                        hasunread = true;
+                    }
+                }
+                threads += messages;
+                threads += "</div>";//end of thread cont
+                container.append(threads);
+                //Event handlers
+                //View thread (open thread and change class of container)
+                Y.one('#' + preffix + 'cont_' + curthread.id + ' .ta_view a').on("click", function(e) {
+                    e.preventDefault();
+                    var link = e.target;
+                    var thread = link.get("parentNode").get("parentNode").get("parentNode").get("parentNode");
+                    thread.addClass("open");
+                    thread.all(".threadmessage").setStyle("display", "block");
+                    if (thread.all(".msgsent").item(0).hasClass("unreadalert")) {
+                        var tid = thread.get("id");
+                        var tid1 = tid.substr((tid.indexOf("_") + 1));//Get msg id element of id (after _)
+                        mg.web_service_call('BuddyWeb', 'makeRead', '?threadid=' + tid1, function(e){});
+                    }
+                    thread.all(".msgsent").item(0).removeClass("unreadalert");
+                    return false;
+                });
+                Y.one('#' + preffix + 'cont_' + curthread.id + ' .ta_close a').on("click", function(e) {
+                    e.preventDefault();
+                    var link = e.target;
+                    var thread = link.get("parentNode").get("parentNode").get("parentNode").get("parentNode");
+                    thread.removeClass("open");
+                    thread.all(".threadmessage").setStyle("display", "none");
+                    thread.one(".quickmessagearea form").setStyle("display", "none");
+                    return false;
+                });
+                //Close thread (close thread and change class of container)
+                //Reply - showbuddyquickmsg
+                Y.one("#" + preffix + "cont_" + curthread.id + " .ta_reply a").on('click', showthreadquickmsg);
+            }
+            //View profile event handlers
+            container.all(".msgbuddy a").on('click', viewaprofile);
+        });
+    }
+
+    //Called from clicking thread reply link
+    function showthreadquickmsg(e) {
+        e.preventDefault();
+        var link = e.target;
+        var thread = link.get("parentNode").get("parentNode").get("parentNode").get("parentNode");
+        //get thread id from div id
+        var tid = thread.get("id");
+        var tid1 = tid.substr((tid.indexOf("_") + 1));//Get thread id element of id (after _)
+        createmsgform("#" + tid + " .quickmessagearea", 0, tid1);
+    }
+
+    //User jumped to Messages tab - load/refresh dynamic content
+    function loadtab1() {
+        YUI().use('node', function(Y) {
+            Y.one('#mainspinner').setStyle('display', 'block');
+            //Check if buddy drop down populated - if not do it.
+            var select = Y.one("#messages .buddyselect");
+            if (select.get("innerHTML") == "") {
+                select.append('<option value="0">All</option>');
+                //loop thru buddies and add as select option
+                for (var i = 0, len = buddylist.length; i < len; i++) {
+                    select.append('<option value="' + buddylist[i].id + '">' + buddylist[i].name + '</option>');
+                }
+            }
+            select.on("change", function(e) {
+                getthreads();
+            });
+            getthreads();
+        });
+    }
+    //Call getThreads WS with buddy based on user selection
+    function getthreads() {
+        YUI().use('node', function(Y) {
+            var select = Y.one("#messages .buddyselect");
+            //buddy select - get value
+            var index = select.get('selectedIndex');
+            buddyid = select.get("options").item(index).getAttribute('value');
+            buddyid = buddyid == 0 ? null : buddyid;
+            //Populate with threads from buddy
+            mg.web_service_call('BuddyWeb', 'getThreads', '?buddyid=' + buddyid, updatethreadmsgs);
+        });
+    }
+    //Update thread list
+    function updatethreadmsgs(ret) {
+        if (typeof ret.content == 'undefined' || typeof ret.content.threads == 'undefined') {
+            return;
+        }
+        YUI().use('node', function(Y) {
+            var msgs = Y.one("#messages #threadlist");
+            var head = Y.one("#messages #threadheadings");
+            head.setStyle("display", "none");
+            msgs.set("innerHTML", "");
+            Y.one('#mainspinner').setStyle('display', 'none');
+            createthreads("#messages #threadlist", ret, "thready");
+            if (ret.content.threads.length > 0) {
+                head.setStyle("display", "block");
+            }
+        });
+    }
+
+    //User jumped to Buddies tab - load/refresh dynamic content
+    function loadtab2() {
+        YUI().use('node', function(Y) {
+            //Check if buddy list populated - if not do it.
+            var select = Y.one("#buddies #buddylist");
+            if (select.get("innerHTML") == "") {
+                //Populate buddy list for first time
+                makebuddylist("");
+            }
+            //Setup search form for buddy list
+            var searchform = Y.one("#buddies #buddysearch");
+            searchform.on("submit", function(e) {
+                e.preventDefault();
+                var form = e.target;
+                //Get text value
+                var searchval = form.one("#buddyname").get("value");
+                //Check if search val is label (i.e. blank)
+                var label = Y.one("label[for=buddyname]");
+                if (searchval == label.get("innerHTML")) {
+                    searchval = "";
+                }
+                makebuddylist(searchval);
+            });
+        });
+    }
+
+    //Write the list of buddies - based on global buddylist
+    function makebuddylist(searchterm) {
+        YUI().use('node', function(Y) {
+            //Check if buddy list populated - if not do it.
+            var buddies = Y.one("#buddies #buddylist");
+            buddies.set("innerHTML", "");
+            for (var i = 0, len = buddylist.length; i < len; i++) {
+                if (searchterm == "" || buddylist[i].name.toLowerCase().indexOf(searchterm.toLowerCase()) != -1) {
+                    //Add buddy to list, build html str and then append
+                    var buddy = '<div class="buddycontainer" id="buddycontainer' + buddylist[i].id + '">';
+                    //Avatar
+                    buddy += '<div class="buddyavatar">';
+                    buddy += '<a href="#" id="bai_' + buddylist[i].id + '">';
+                    buddy += '<img src="' + buddylist[i].avatar + '" alt="View profile of ' + buddylist[i].name + '" title="View profile of ' + buddylist[i].name + '" class="avatar" />';
+                    buddy += '</a></div>';
+                    //Name + profile link
+                    buddy += '<div class="buddyname"><h3>' + buddylist[i].name + '</h3></div>';
+                    //Send message link
+                    buddy += '<p class="buddyprofilelink"><a href="#" id="bpl_' + buddylist[i].id + '" title="View profile of ' + buddylist[i].name + '">';
+                    buddy += "View profile";
+                    buddy += '</p><p class="buddymsglink">';
+                    buddy += '<a href="#" id="sm_' + buddylist[i].id + '" title="Send message to ' + buddylist[i].name + '">';
+                    buddy += "Send message";
+                    buddy += '</a></p>';
+                    //Holder for message area
+                    buddy += '<div class="quickmessagearea"></div>';
+                    //Close container
+                    buddy += '</div>';
+                    buddies.append(buddy);
+                    //Add event handlers
+                    Y.one("#bai_" + buddylist[i].id).on('click', viewaprofile);
+                    Y.one("#bpl_" + buddylist[i].id).on('click', viewaprofile);
+                    Y.one("#sm_" + buddylist[i].id).on('click', showbuddyquickmsg);
+                }
+            }
+        });
+    }
+
+    //Called from clicking profile avatar/link
+    function viewaprofile(e) {
+        e.preventDefault();
+        var link = e.target;
+        var toid = link.get("id");
+        if (toid == "") {
+            toid = link.get("parentNode").get("id");
+        }
+        toid = toid.substr((toid.indexOf("_") + 1));//Get user id element of id (after _)
+        showprofile(toid);
+    }
+
+    //Called from clicking buddy send message link
+    function showbuddyquickmsg(e) {
+        e.preventDefault();
+        var link = e.target;
+        var toid = link.get("id");
+        toid = toid.substr((toid.indexOf("_") + 1));//Get user id element of id (after _)
+        createmsgform("#buddycontainer" + toid + " .quickmessagearea", toid, 0);
+    }
+
+    //User jumped to Profile tab - load/refresh dynamic content
+    function loadtab3() {
+        //Load and display the current user profile if not already exists
+        showprofile(0);
+    }
+    var inother = false;//stop profile repition from event handler
+
+    //Action showing a profile
+    function showprofile(id) {
+        YUI().use("node", function(Y) {
+            if (inother) {
+                inother = false;
+                return;
+            }
+            if (isNaN(id)) {
+                id = 0;
+            }
+            if (id == 0) {
+                //Current user
+                Y.one("#otherprofile").setStyle("display", "none");
+                if (Y.one("#userprofile").get("innerHTML") == "") {
+                    //Profile not yet loaded...
+                    Y.one('#mainspinner').setStyle('display', 'block');
+                    mg.web_service_call('BuddyWeb', 'getProfile', '?id=0', function(ret){
+                        makeprofile(ret, true);
+                    });
+                } else {
+                    Y.one("#userprofile").setStyle("display", "block");
+                }
+            } else {
+                //Another user
+                Y.one("#userprofile").setStyle("display", "none");
+                Y.one("#otherprofile").setStyle("display", "none");
+                inother = true;
+                tabview.selectChild(3);
+                inother = false;
+                Y.one("#otherprofile").set("innerHTML", "");
+                Y.one('#mainspinner').setStyle('display', 'block');
+                mg.web_service_call('BuddyWeb', 'getProfile', '?id=' + id, function(ret){
+                    makeprofile(ret, false);
+                });
+            }
+        });
+    }
+
+    //Response from web service with user profile data - make profile html
+    function makeprofile(ret, curuser) {
+        YUI().use("node", function(Y) {
+            if (typeof ret.content == "undefined" || typeof ret.content.items == "undefined") {
+                Y.one('#mainspinner').setStyle('display', 'none');
+                return;
+            }
+            var profilenode;
+            if (curuser) {
+                profilenode = Y.one("#userprofile");
+            } else {
+                profilenode = Y.one("#otherprofile");
+            }
+            var profile = "";
+            profile += '<div class="profiletitle">';
+            if (curuser) {
+                profile += "My";
+            } else {
+                profile += ret.content.name + "'s";
+            }
+            profile += ' profile</div><div class="profileaction">';
+            if (curuser) {
+                profile += '<a href="' + ret.content.link + '">';
+                profile += '<img src="%%DIR%%/buddy/editprofile.png" alt="Update profile" title="Update profile" />';
+            } else {
+                profile += '<a href="#">';
+                profile += '<img src="%%DIR%%/buddy/closeprofile.png" alt="Close profile" title="Close profile" />';
+            }
+            profile += "</a></div>";
+            profile += '<div class="profilebody">';
+            //Avatar
+            profile += '<div><img src="' + ret.content.avatar + '" alt="" /></div>';
+            //Main profile body of items
+            for (var i = 0, len = ret.content.items.length; i < len; i++) {
+                profile += '<div class="profileitem">';
+                profile += '<div class="profileitemname">';
+                profile += ret.content.items[i].name;
+                profile += "</div>";
+                profile += '<div class="profileitemvalue">';
+                //either plain text or list
+                if (ret.content.items[i].value == null || ret.content.items[i].value == "null") {
+                    ret.content.items[i].value = "";
+                }
+                if (typeof ret.content.items[i].value == "string") {
+                    profile += ret.content.items[i].value;
+                } else {
+                    profile += "<ul>";
+                    for (var j = 0, len2 = ret.content.items[i].value.items.length; j < len2; j++) {
+                        profile += "<li>" + ret.content.items[i].value.items[j].Title + "</li>";
+                    }
+                    profile += "</ul>";
+                }
+                profile += "</div></div>";
+            }
+            profile += "</div>";
+            profilenode.append(profile);
+            //Button event handler
+            profilenode.one(".profileaction a").on("click", function(e) {
+                e.preventDefault();
+                var a = e.target.get("parentNode");
+                if (a.get("href").indexOf("#") == -1) {
+                    window.open(a.get("href"), "_blank");
+                    return false;
+                } else {
+                    Y.one("#otherprofile").setStyle("display", "none");
+                    Y.one("#userprofile").setStyle("display", "block");
+                    return false;
+                }
+            });
+            Y.one('#mainspinner').setStyle('display', 'none');
+            profilenode.setStyle("display", "block");
+        });
+    }
+
+    //Update the status bar with info from server
+    function updatestatus() {
+        var test = mg.web_service_call('BuddyWeb', 'getInvites', '', setinvites);
+        mg.web_service_call('BuddyWeb', 'getUnreadMessages', '', setunreadmsgs);
+        YUI().use("node", function(Y) {
+            Y.one("#invites").set("innerHTML", "");
+            Y.one("#numunread").set("innerHTML", "");
+        });
+    }
+
+    function setinvites(ret) {
+        if (typeof ret.content != 'undefined') {
+            var but = "";
+            but += '<a href="' + ret.content.url + '" title="View invitations">' + ret.content.result + '</a>';
+            YUI().use("node", function(Y) {
+                Y.one("#invites").set("innerHTML", but);
+            });
+        }
+    }
+
+    function setunreadmsgs(ret) {
+        if (typeof ret.content != 'undefined' && typeof ret.content.total != 'undefined') {
+            var but = "";
+            but += '<a href="#" title="View unread messages">' + ret.content.total + '</a>';
+            YUI().use("node", function(Y) {
+                Y.one("#numunread").set("innerHTML", but);
+                Y.one("#numunread a").on("click", function() {tabview.selectChild(0);});
+            });
+        }
+    }
+
+    /*
+    * Create a message form in thread or buddy page
+    * cssquery - to return div form will sit in (must be empty)
+    * toid - user id to send to
+    * threadid - 0 if new thread
+    */
+    function createmsgform(cssquery, toid, threadid) {
+        YUI().use("node", function(Y) {
+            var container = Y.one(cssquery);
+            if (container.get("innerHTML") != "") {
+                //Make sure not hidden and is empty
+                if (container.one("form").getStyle("display") == "none") {
+                    var formref = container.one("form");
+                    if (formref.one(".threadtitle")) {
+                        formref.one(".threadtitle").set("value", "");
+                    }
+                    formref.one(".message").set("value", "");
+                    formref.setStyle("display", "block");
+                    //Set container class selected
+                    container.get("parentNode").addClass("open");
+                }
+                return;
+            }
+            //Create msg form html
+            var form = '<form class="msg" action="">';
+            form += '<div>';
+            if (threadid == 0) {
+                form += '<label for="newthread' + toid + '" class="inputlabel">Message title</label>';
+                form += '<input type="text" name="title" id="newthread' + toid + '" class="threadtitle" />';
+            } else {
+                form += '<input name="threadid" class="threadid" type="hidden" value="' + threadid + '" />';
+            }
+            form += '<input name="toid" class="toid" type="hidden" value="' + toid + '" />';
+            form += '<div class="messagebox">';
+            var msgid = "msgtext" + toid + threadid;
+            form += '<label for="' + msgid + '" class="inputlabel">Message text</label>';
+            form += '<textarea name="message" class="message" id="' + msgid + '"></textarea>';
+            form += '</div>';
+            form += '<input type="submit" value="SEND" class="send" />';
+            form += '<input type="button" value="CANCEL" class="cancel" />';
+            form += '</div>';
+            form += '</form>';
+            //append to container
+            container.append(form);
+            //assign event handlers
+            container.one("form").on("submit", sendmsg);
+            container.one(".cancel").on("click", function(e) {
+                //Cancel function
+                e.preventDefault();
+                var button = e.target;
+                button.get("parentNode").get("parentNode").setStyle("display", "none");
+                var cont = button.get("parentNode").get("parentNode").get("parentNode").get("parentNode");
+                if (cont.get("id").indexOf("buddycontainer") != -1) {
+                    //Remove open class in buddy list
+                    cont.removeClass("open");
+                }
+            });
+            makefieldsprepop();
+        });
+    }
+
+    //Submit msg form
+    function sendmsg(e) {
+        e.preventDefault();
+        var form = e.target;
+        YUI().use("node", function(Y) {
+            //get all the msg data from form and verify
+            var text = encodeURIComponent(form.one(".message").get("value"));
+            if (text != "") {
+                //DO nothing if blank
+                var buddyid = 0;
+                if (form.one(".toid")) {
+                    //hidden buddy id field (must have toid class)
+                    buddyid = form.one(".toid").get("value");
+                } else {
+                    //buddy select - get value
+                    var index = Y.one("#" + form.get("id") + " .buddyselect").get('selectedIndex');
+                    buddyid = Y.one("#" + form.get("id") + " .buddyselect").get("options").item(index).getAttribute('value');
+                }
+                //Thread ID
+                var threadid = 0;
+                if (form.one(".threadid")) {
+                    threadid = form.one(".threadid").get("value");
+                }
+                if (buddyid != 0) {
+                    var title = encodeURIComponent(form.one(".threadtitle").get("value"));
+                    mg.web_service_call('BuddyWeb', 'newThread', '?buddyid=' + buddyid + '&title=' + title + '&message=' + text, function(ret){});
+                } else if (threadid != 0) {
+                    mg.web_service_call('BuddyWeb', 'replyThread', '?threadid=' + threadid + '&message=' + text, function(ret){});
+                } else {
+                    error("Invalid message context.");
+                }
+                if (form.get("id") != "quickmsg") {
+                    form.setStyle("display", "none");
+                } else {
+                    form._node.reset();
+                }
+                var cont = form.get("parentNode").get("parentNode");
+                if (cont.get("id").indexOf("buddycontainer") != -1) {
+                    //Remove open class in buddy list
+                    cont.removeClass("open");
+                }
+            }
+        });
+        return false;
+    }
+
+    //HELPER FUNCTIONS
+
+    function makefieldsprepop() {
+        YUI().use("node", function(Y) {
+            var nodes = Y.all("input[type=text], textarea");
+            nodes.each(function(node) {
+                if (node.get("value") == "") {
+                    var id = node.get("id");
+                    var label = Y.one("label[for=" + id + "]");
+                    node.set("value", label.get("innerHTML"));
+                    node.addClass("prepop");
+                }
+            });
+            nodes.on("focus", function(e) {
+                var node = e.target;
+                var id = node.get("id");
+                var label = Y.one("label[for=" + id + "]");
+                if (node.get("value") == label.get("innerHTML")) {
+                    node.removeClass("prepop");
+                    node.set("value", "");
+                }
+            });
+            nodes.on("blur", function(e) {
+                var node = e.target;
+                var id = node.get("id");
+                var label = Y.one("label[for=" + id + "]");
+                if (node.get("value") == "") {
+                    node.addClass("prepop");
+                    node.set("value", label.get("innerHTML"));
+                }
+            });
+        });
+    }
+
+    function resize_gadget() {
+        if (gadgets.views.getCurrentView().getName().toLowerCase() == 'canvas') {
+            // Tells gadget to resize itself
+            gadgets.window.adjustHeight();
+            return;
+        }
+        YUI().use("node", function(Y) {
+            //Check for Mobile (tricky with android as may be tablet)
+            if (Y.UA.iphone > 0 || Y.UA.ipod > 0 || (Y.UA.android > 1 && Y.UA.android < 3)) {
+                gadgets.window.adjustHeight();
+            }
+        });
+    }
+
+    var mg = new silverstripe_gadget("%%SERVER%%", true);
+
+    //Check user mapping between gadget and silverstripe
+    gadgets.util.registerOnLoadHandler(function(){mg.user_map_exists()});
+    gadgets.util.registerOnLoadHandler(start);
+  </script>
+
+<div id="usermap"> </div>
+<div id="linktoauthorise"> </div>
+<div id="layout" role="main">
+<div id="tabs">
+    <ul id="tablist">
+        <li class="hometab"><a href="#unread" title="Unread messages">Home</a></li>
+        <li class="threadtab"><a href="#messages" title="Conversations">Msgs</a></li>
+        <li class="buddiestab"><a href="#buddies" title="Buddies">Buddies</a></li>
+        <li class="profiletab"><a href="#profile" title="Profile">Profile</a></li>
+    </ul>
+    <div>
+        <div id="unread">
+            <form id="quickmsg" action="">
+            <div>
+            <label for="quickmsgtitle" class="inputlabel">New message title</label>
+            <input type="text" name="title" id="quickmsgtitle" class="threadtitle" />
+            <label for="quickmsgbuddyselect" class="inputlabel">Select recipient</label>
+            <select name="buddy" id="quickmsgbuddyselect" class="buddyselect"></select>
+            <div class="messagebox">
+            <label for="quickmsgmessage" class="inputlabel">New message text</label>
+            <textarea name="message" class="message" id="quickmsgmessage"></textarea>
+            </div>
+            <input type="submit" value="SEND" class="send" />
+            </div>
+            </form>
+            <div id="unreadsection">
+            <h2>Unread messages</h2>
+            <div id="unreadheadings">
+            <div class="msgsent">Sent</div>
+            <div class="msgbuddy">Buddy</div>
+            <div class="msgmain">Conversation</div>
+            </div>
+            <div id="unreadlist"></div>
+            </div>
+        </div>
+        <div id="messages">
+            <h2>My Conversations</h2>
+            <label for="threadbuddyselect" id="threadbuddyselectlabel">Filter by buddy</label>
+            <select name="buddy" id="threadbuddyselect" class="buddyselect"></select>
+            <div id="threadheadings">
+            <div class="msgsent">Sent</div>
+            <div class="msgbuddy">Buddy</div>
+            <div class="msgmain">Conversation</div>
+            </div>
+            <div id="threadlist"></div>
+        </div>
+        <div id="buddies">
+            <h2>My buddies</h2>
+            <form id="buddysearch" action="">
+            <label for="buddyname" class="inputlabel">Buddy name to filter by</label>
+            <input type="text" id="buddyname" name="buddyname"></input>
+            <input type="submit" id="buddysearchsubmit" value="Filter"></input>
+            </form>
+            <div id="buddylist"></div>
+        </div>
+        <div id="profile">
+            <div id="userprofile"></div>
+            <div id="otherprofile"></div>
+        </div>
+    </div>
+</div>
+<div id="footer">
+<div id="numunread"></div>
+<div id="invites"></div>
+<div id="oulogo"><img src="%%DIR%%/buddy/oulogo.png" alt="" /></div>
+<div id="home"><a href="%%SERVER%%"><img src="%%DIR%%/buddy/home.png" alt="Home" title="Home" /></a></div>
+</div>
+</div>
+<div class="clearer"></div>
+<div id="mainspinner" class="spinner"><img src="%%DIR%%/buddy/ajax-loader.gif" alt=""/></div>
+<script src="http://yui.yahooapis.com/3.4.1/build/yui/yui-min.js"></script>]]></Content>
+</Module>
