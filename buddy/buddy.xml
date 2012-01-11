@@ -99,6 +99,14 @@
                     }
                     Y.one('#mainspinner').setStyle('display', 'none');
                     makefieldsprepop();//Add pre-populated fields
+                    //Add new window func
+                    Y.one("#home a").on("click", function (e) {
+                        e.preventDefault();
+                        var a = e.target.get("parentNode");
+                        window.open(a.get("href"), "_blank");
+                        return false;
+                        }
+                    );
                     //Display after all rendered
                     Y.one('#layout').setStyle('display', 'block');
                     resize_gadget();
@@ -538,6 +546,13 @@
             but += '<a href="' + ret.content.url + '" title="View invitations">' + ret.content.result + '</a>';
             YUI().use("node", function(Y) {
                 Y.one("#invites").set("innerHTML", but);
+                Y.one("#invites a").on("click", function (e) {
+                    e.preventDefault();
+                    var a = e.target;
+                    window.open(a.get("href"), "_blank");
+                    return false;
+                    }
+                );
             });
         }
     }
