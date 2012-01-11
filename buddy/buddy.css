@@ -115,8 +115,8 @@ a {
     display: inline;
     margin-top: 2px;
     height: 1.7em;
-	 font-size: 90%;
-	 border: 1px solid #ccc;
+	font-size: 90%;
+	border: 1px solid #ccc;
 }
 #unread #quickmsg .messagebox {
     margin-right: 7em;
@@ -124,7 +124,8 @@ a {
 #unread #quickmsg .message {
     width: 100%;
     float: left;
-	 font-size: 90%;
+	font-size: 90%;
+	height: 30px;
 }
 #unread #quickmsg .send {
     float: right;
